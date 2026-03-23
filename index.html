@@ -19,6 +19,15 @@
     .badge-theirs   { background: #eab30820; color: #eab308; border: 1px solid #eab30840; }
     .badge-complete { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; }
 
+    /* Team badges */
+    .team-badge { font-size: 11px; border-radius: 99px; padding: 2px 8px; font-weight: 600; display: inline-block; }
+    .team-Messaging      { background: #3b82f620; color: #3b82f6; border: 1px solid #3b82f640; }
+    .team-PPC            { background: #a855f720; color: #a855f7; border: 1px solid #a855f740; }
+    .team-SEO            { background: #10b98120; color: #10b981; border: 1px solid #10b98140; }
+    .team-Growth         { background: #f43f5e20; color: #f43f5e; border: 1px solid #f43f5e40; }
+    .team-Paid-Social    { background: #f59e0b20; color: #f59e0b; border: 1px solid #f59e0b40; }
+    .team-Content-Merch  { background: #06b6d420; color: #06b6d4; border: 1px solid #06b6d440; }
+
     .card {
       background: #1e293b;
       border: 1px solid #334155;
@@ -223,8 +232,20 @@
           <textarea id="new-desc" rows="2" placeholder="Any extra detail..."></textarea>
         </div>
         <div>
-          <label class="text-slate-400 text-xs mb-1 block">Person / Team</label>
-          <input id="new-person" type="text" placeholder="e.g. John, Design Team" />
+          <label class="text-slate-400 text-xs mb-1 block">Person</label>
+          <input id="new-person" type="text" placeholder="e.g. John, Sarah" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Team</label>
+          <select id="new-team">
+            <option value="">— No team —</option>
+            <option value="Messaging">Messaging</option>
+            <option value="PPC">PPC</option>
+            <option value="SEO">SEO</option>
+            <option value="Growth">Growth</option>
+            <option value="Paid Social">Paid Social</option>
+            <option value="Content &amp; Merch">Content &amp; Merch</option>
+          </select>
         </div>
         <div>
           <label class="text-slate-400 text-xs mb-1 block">Start in column</label>
@@ -257,8 +278,20 @@
           <textarea id="edit-desc" rows="2"></textarea>
         </div>
         <div>
-          <label class="text-slate-400 text-xs mb-1 block">Person / Team</label>
+          <label class="text-slate-400 text-xs mb-1 block">Person</label>
           <input id="edit-person" type="text" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Team</label>
+          <select id="edit-team">
+            <option value="">— No team —</option>
+            <option value="Messaging">Messaging</option>
+            <option value="PPC">PPC</option>
+            <option value="SEO">SEO</option>
+            <option value="Growth">Growth</option>
+            <option value="Paid Social">Paid Social</option>
+            <option value="Content &amp; Merch">Content &amp; Merch</option>
+          </select>
         </div>
         <div>
           <label class="text-slate-400 text-xs mb-1 block">Column</label>
@@ -292,6 +325,14 @@
 
     const COLS = ['new', 'mine', 'theirs', 'complete'];
     const COL_LABELS = { new: 'New Idea', mine: 'Pending My Action', theirs: 'Pending Their Action', complete: 'Complete' };
+    const TEAM_CLASS = {
+      'Messaging':       'team-Messaging',
+      'PPC':             'team-PPC',
+      'SEO':             'team-SEO',
+      'Growth':          'team-Growth',
+      'Paid Social':     'team-Paid-Social',
+      'Content & Merch': 'team-Content-Merch',
+    };
 
     // ─── Boot ──────────────────────────────────────────────────────────────────
     async function init() {
@@ -337,6 +378,7 @@
       const person = c.person ? `<span class="text-xs text-slate-400 mt-1 block">👤 ${esc(c.person)}</span>` : '';
       const desc = c.description ? `<p class="text-slate-400 text-xs mt-1 leading-relaxed">${esc(c.description)}</p>` : '';
       const date = new Date(c.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+      const teamBadge = c.team ? `<span class="team-badge ${TEAM_CLASS[c.team] || ''}">${esc(c.team)}</span>` : '';
       return `
         <div class="card" data-id="${c.id}" draggable="true" ondblclick="openEditModal('${c.id}')">
           <div class="flex items-start justify-between gap-2">
@@ -346,7 +388,10 @@
           ${desc}
           ${person}
           <div class="flex items-center justify-between mt-2">
-            <span class="text-xs ${badgeClass} rounded-full px-2 py-0.5">${COL_LABELS[c.column]}</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs ${badgeClass} rounded-full px-2 py-0.5">${COL_LABELS[c.column]}</span>
+              ${teamBadge}
+            </div>
             <span class="text-xs text-slate-600">${date}</span>
           </div>
         </div>`;
@@ -365,6 +410,7 @@
         title,
         description: document.getElementById('new-desc').value.trim(),
         person: document.getElementById('new-person').value.trim(),
+        team: document.getElementById('new-team').value,
         column: document.getElementById('new-col').value,
         position: cards.length,
         created_at: new Date().toISOString()
@@ -372,10 +418,10 @@
       if (db) {
         const { data, error } = await db.from('cards').insert([{
           title: card.title, description: card.description,
-          person: card.person, status: card.column, position: card.position
+          person: card.person, team: card.team, status: card.column, position: card.position
         }]).select().single();
         if (error) { showToast('Error saving: ' + error.message); return; }
-        cards.push(data);
+        cards.push({...data, column: data.status});
       } else {
         cards.push(card);
       }
@@ -410,6 +456,7 @@
       document.getElementById('edit-title').value = card.title || '';
       document.getElementById('edit-desc').value = card.description || '';
       document.getElementById('edit-person').value = card.person || '';
+      document.getElementById('edit-team').value = card.team || '';
       document.getElementById('edit-col').value = card.column || 'new';
       const bd = document.getElementById('edit-backdrop');
       bd.classList.remove('hidden');
@@ -424,12 +471,13 @@
         title,
         description: document.getElementById('edit-desc').value.trim(),
         person: document.getElementById('edit-person').value.trim(),
+        team: document.getElementById('edit-team').value,
         column: col
       };
       const card = cards.find(c => String(c.id) === String(editId));
       if (!card) return;
       Object.assign(card, updates);
-      if (db) await db.from('cards').update({ title: updates.title, description: updates.description, person: updates.person, status: col }).eq('id', editId);
+      if (db) await db.from('cards').update({ title: updates.title, description: updates.description, person: updates.person, team: updates.team, status: col }).eq('id', editId);
       render();
       closeEditModal();
       showToast('Saved ✓');
@@ -461,6 +509,7 @@
     }
     function clearModal() {
       ['new-title','new-desc','new-person'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('new-team').value = '';
       document.getElementById('new-col').value = 'new';
     }
     function closeEditModal(e) {
