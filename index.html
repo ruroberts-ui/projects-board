@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Projects Board</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; }
+
+    .column-new      { border-top: 4px solid #ef4444; }
+    .column-mine     { border-top: 4px solid #f97316; }
+    .column-theirs   { border-top: 4px solid #eab308; }
+    .column-complete { border-top: 4px solid #22c55e; }
+
+    .badge-new      { background: #ef444420; color: #ef4444; border: 1px solid #ef444440; }
+    .badge-mine     { background: #f9731620; color: #f97316; border: 1px solid #f9731640; }
+    .badge-theirs   { background: #eab30820; color: #eab308; border: 1px solid #eab30840; }
+    .badge-complete { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      cursor: grab;
+      transition: box-shadow 0.2s, transform 0.15s;
+      user-select: none;
+    }
+    .card:active { cursor: grabbing; }
+    .card.dragging { opacity: 0.4; transform: scale(0.97); }
+    .card:hover { border-color: #475569; box-shadow: 0 4px 16px #0008; }
+
+    .drop-zone {
+      min-height: 80px;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .drop-zone.drag-over { background: #ffffff10; outline: 2px dashed #475569; }
+
+    .col-header-count {
+      font-size: 11px;
+      background: #334155;
+      color: #94a3b8;
+      border-radius: 99px;
+      padding: 1px 8px;
+    }
+
+    /* Modal */
+    #modal-backdrop {
+      background: #00000088;
+      backdrop-filter: blur(4px);
+    }
+    input, textarea, select {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: #6366f1; }
+    select option { background: #1e293b; }
+
+    .btn-primary {
+      background: #6366f1;
+      color: white;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: none;
+    }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-ghost {
+      background: transparent;
+      color: #94a3b8;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: 1px solid #334155;
+    }
+    .btn-ghost:hover { background: #1e293b; color: #e2e8f0; }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1e293b; border: 1px solid #334155;
+      color: #e2e8f0; border-radius: 10px;
+      padding: 12px 18px; z-index: 9999;
+      box-shadow: 0 8px 32px #0008;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to   { transform: translateY(0);   opacity: 1; }
+    }
+
+    .delete-btn {
+      opacity: 0;
+      transition: opacity 0.2s;
+      cursor: pointer;
+      color: #64748b;
+    }
+    .card:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { color: #ef4444; }
+
+    /* Config banner */
+    #config-banner {
+      background: #451a03;
+      border: 1px solid #92400e;
+      border-radius: 10px;
+      color: #fbbf24;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen p-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-white">My Projects Board</h1>
+      <p class="text-slate-400 text-sm mt-0.5">Drag cards between columns · Add new ideas below</p>
+    </div>
+    <button onclick="openModal()" class="btn-primary flex items-center gap-2">
+      <span class="text-lg leading-none">+</span> New Idea
+    </button>
+  </div>
+
+  <!-- Config banner (shown until Supabase is connected) -->
+  <div id="config-banner">
+    ⚠️ <strong>Setup needed:</strong> Open <code>config.js</code> and add your Supabase URL and key to enable saving.
+    Cards will work in-memory until then. <a href="#" onclick="dismissBanner()" class="underline ml-2">Dismiss</a>
+  </div>
+
+  <!-- Board -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+    <!-- New Idea -->
+    <div class="column-new bg-slate-800/60 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+          <span class="font-semibold text-white text-sm">New Idea</span>
+        </div>
+        <span id="count-new" class="col-header-count">0</span>
+      </div>
+      <div id="col-new" class="drop-zone" ondragover="onDragOver(event)" ondrop="onDrop(event,'new')" ondragleave="onDragLeave(event)"></div>
+    </div>
+
+    <!-- Pending My Action -->
+    <div class="column-mine bg-slate-800/60 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-orange-500 inline-block"></span>
+          <span class="font-semibold text-white text-sm">Pending My Action</span>
+        </div>
+        <span id="count-mine" class="col-header-count">0</span>
+      </div>
+      <div id="col-mine" class="drop-zone" ondragover="onDragOver(event)" ondrop="onDrop(event,'mine')" ondragleave="onDragLeave(event)"></div>
+    </div>
+
+    <!-- Pending Their Action -->
+    <div class="column-theirs bg-slate-800/60 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
+          <span class="font-semibold text-white text-sm">Pending Their Action</span>
+        </div>
+        <span id="count-theirs" class="col-header-count">0</span>
+      </div>
+      <div id="col-theirs" class="drop-zone" ondragover="onDragOver(event)" ondrop="onDrop(event,'theirs')" ondragleave="onDragLeave(event)"></div>
+    </div>
+
+    <!-- Complete -->
+    <div class="column-complete bg-slate-800/60 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
+          <span class="font-semibold text-white text-sm">Complete</span>
+        </div>
+        <span id="count-complete" class="col-header-count">0</span>
+      </div>
+      <div id="col-complete" class="drop-zone" ondragover="onDragOver(event)" ondrop="onDrop(event,'complete')" ondragleave="onDragLeave(event)"></div>
+    </div>
+
+  </div>
+
+  <!-- Add Card Modal -->
+  <div id="modal-backdrop" class="fixed inset-0 hidden items-center justify-center z-50" onclick="closeModal(event)">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl" onclick="event.stopPropagation()">
+      <h2 class="text-white font-bold text-lg mb-4">Add New Card</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Title *</label>
+          <input id="new-title" type="text" placeholder="What's the idea or task?" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Description</label>
+          <textarea id="new-desc" rows="2" placeholder="Any extra detail..."></textarea>
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Person / Team</label>
+          <input id="new-person" type="text" placeholder="e.g. John, Design Team" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Start in column</label>
+          <select id="new-col">
+            <option value="new">New Idea</option>
+            <option value="mine">Pending My Action</option>
+            <option value="theirs">Pending Their Action</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5 justify-end">
+        <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="addCard()">Add Card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="edit-backdrop" class="fixed inset-0 hidden items-center justify-center z-50" onclick="closeEditModal(event)">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl" onclick="event.stopPropagation()">
+      <h2 class="text-white font-bold text-lg mb-4">Edit Card</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Title *</label>
+          <input id="edit-title" type="text" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Description</label>
+          <textarea id="edit-desc" rows="2"></textarea>
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Person / Team</label>
+          <input id="edit-person" type="text" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1 block">Column</label>
+          <select id="edit-col">
+            <option value="new">New Idea</option>
+            <option value="mine">Pending My Action</option>
+            <option value="theirs">Pending Their Action</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5 justify-end">
+        <button class="btn-ghost" onclick="closeEditModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    // ─── Supabase setup ────────────────────────────────────────────────────────
+    let db = null;
+    if (window.SUPABASE_URL && window.SUPABASE_KEY && window.SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+      db = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
+    }
+
+    // ─── State ─────────────────────────────────────────────────────────────────
+    let cards = [];
+    let dragId = null;
+    let editId = null;
+
+    const COLS = ['new', 'mine', 'theirs', 'complete'];
+    const COL_LABELS = { new: 'New Idea', mine: 'Pending My Action', theirs: 'Pending Their Action', complete: 'Complete' };
+
+    // ─── Boot ──────────────────────────────────────────────────────────────────
+    async function init() {
+      if (db) {
+        document.getElementById('config-banner').style.display = 'none';
+        const { data, error } = await db.from('cards').select('*').order('position');
+        if (!error && data) cards = data.map(c => ({...c, column: c.status}));
+
+        // Real-time updates (so WhatsApp changes appear instantly)
+        db.channel('cards-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, () => loadFromDb())
+          .subscribe();
+      }
+      render();
+    }
+
+    async function loadFromDb() {
+      if (!db) return;
+      const { data } = await db.from('cards').select('*').order('position');
+      if (data) { cards = data.map(c => ({...c, column: c.status})); render(); }
+    }
+
+    // ─── Render ────────────────────────────────────────────────────────────────
+    function render() {
+      COLS.forEach(col => {
+        const zone = document.getElementById('col-' + col);
+        const colCards = cards.filter(c => c.column === col);
+        document.getElementById('count-' + col).textContent = colCards.length;
+        zone.innerHTML = colCards.map(c => cardHTML(c)).join('');
+      });
+      // Attach drag events
+      document.querySelectorAll('.card').forEach(el => {
+        el.addEventListener('dragstart', e => {
+          dragId = e.currentTarget.dataset.id;
+          setTimeout(() => e.currentTarget.classList.add('dragging'), 0);
+        });
+        el.addEventListener('dragend', e => e.currentTarget.classList.remove('dragging'));
+      });
+    }
+
+    function cardHTML(c) {
+      const badgeClass = `badge-${c.column}`;
+      const person = c.person ? `<span class="text-xs text-slate-400 mt-1 block">👤 ${esc(c.person)}</span>` : '';
+      const desc = c.description ? `<p class="text-slate-400 text-xs mt-1 leading-relaxed">${esc(c.description)}</p>` : '';
+      const date = new Date(c.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+      return `
+        <div class="card" data-id="${c.id}" draggable="true" ondblclick="openEditModal('${c.id}')">
+          <div class="flex items-start justify-between gap-2">
+            <span class="text-white text-sm font-medium leading-snug flex-1">${esc(c.title)}</span>
+            <button class="delete-btn text-lg leading-none mt-0.5" onclick="deleteCard('${c.id}',event)" title="Delete">×</button>
+          </div>
+          ${desc}
+          ${person}
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-xs ${badgeClass} rounded-full px-2 py-0.5">${COL_LABELS[c.column]}</span>
+            <span class="text-xs text-slate-600">${date}</span>
+          </div>
+        </div>`;
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ─── Add card ──────────────────────────────────────────────────────────────
+    async function addCard() {
+      const title = document.getElementById('new-title').value.trim();
+      if (!title) { showToast('Please enter a title'); return; }
+      const card = {
+        id: db ? undefined : crypto.randomUUID(),
+        title,
+        description: document.getElementById('new-desc').value.trim(),
+        person: document.getElementById('new-person').value.trim(),
+        column: document.getElementById('new-col').value,
+        position: cards.length,
+        created_at: new Date().toISOString()
+      };
+      if (db) {
+        const { data, error } = await db.from('cards').insert([{
+          title: card.title, description: card.description,
+          person: card.person, status: card.column, position: card.position
+        }]).select().single();
+        if (error) { showToast('Error saving: ' + error.message); return; }
+        cards.push(data);
+      } else {
+        cards.push(card);
+      }
+      render();
+      closeModal();
+      clearModal();
+      showToast('Card added ✓');
+    }
+
+    // ─── Drag & drop ──────────────────────────────────────────────────────────
+    function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+    function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+    async function onDrop(e, col) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      if (!dragId) return;
+      const card = cards.find(c => String(c.id) === String(dragId));
+      if (!card || card.column === col) return;
+      card.column = col;
+      if (db) {
+        await db.from('cards').update({ status: col }).eq('id', dragId);
+      }
+      render();
+      dragId = null;
+    }
+
+    // ─── Edit card ─────────────────────────────────────────────────────────────
+    function openEditModal(id) {
+      const card = cards.find(c => String(c.id) === String(id));
+      if (!card) return;
+      editId = id;
+      document.getElementById('edit-title').value = card.title || '';
+      document.getElementById('edit-desc').value = card.description || '';
+      document.getElementById('edit-person').value = card.person || '';
+      document.getElementById('edit-col').value = card.column || 'new';
+      const bd = document.getElementById('edit-backdrop');
+      bd.classList.remove('hidden');
+      bd.classList.add('flex');
+    }
+
+    async function saveEdit() {
+      const title = document.getElementById('edit-title').value.trim();
+      if (!title) { showToast('Title required'); return; }
+      const col = document.getElementById('edit-col').value;
+      const updates = {
+        title,
+        description: document.getElementById('edit-desc').value.trim(),
+        person: document.getElementById('edit-person').value.trim(),
+        column: col
+      };
+      const card = cards.find(c => String(c.id) === String(editId));
+      if (!card) return;
+      Object.assign(card, updates);
+      if (db) await db.from('cards').update({ title: updates.title, description: updates.description, person: updates.person, status: col }).eq('id', editId);
+      render();
+      closeEditModal();
+      showToast('Saved ✓');
+    }
+
+    async function deleteCard(id, e) {
+      e.stopPropagation();
+      if (!confirm('Delete this card?')) return;
+      cards = cards.filter(c => String(c.id) !== String(id));
+      if (db) await db.from('cards').delete().eq('id', id);
+      render();
+      showToast('Card deleted');
+    }
+
+    // ─── Modal helpers ─────────────────────────────────────────────────────────
+    function openModal() {
+      const bd = document.getElementById('modal-backdrop');
+      bd.classList.remove('hidden'); bd.classList.add('flex');
+      setTimeout(() => document.getElementById('new-title').focus(), 50);
+    }
+    function closeModal(e) {
+      if (e && e.target !== document.getElementById('modal-backdrop')) return;
+      const bd = document.getElementById('modal-backdrop');
+      bd.classList.add('hidden'); bd.classList.remove('flex');
+    }
+    function closeModal() {
+      const bd = document.getElementById('modal-backdrop');
+      bd.classList.add('hidden'); bd.classList.remove('flex');
+    }
+    function clearModal() {
+      ['new-title','new-desc','new-person'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('new-col').value = 'new';
+    }
+    function closeEditModal(e) {
+      if (e && e.target !== document.getElementById('edit-backdrop')) return;
+      const bd = document.getElementById('edit-backdrop');
+      bd.classList.add('hidden'); bd.classList.remove('flex');
+    }
+    function closeEditModal() {
+      const bd = document.getElementById('edit-backdrop');
+      bd.classList.add('hidden'); bd.classList.remove('flex');
+    }
+
+    // ─── Toast ─────────────────────────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.className = 'toast'; t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2800);
+    }
+
+    function dismissBanner() {
+      document.getElementById('config-banner').style.display = 'none';
+    }
+
+    // Enter key to submit modal
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closeEditModal(); }
+    });
+
+    init();
+  </script>
+</body>
+</html>
