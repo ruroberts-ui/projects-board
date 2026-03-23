@@ -491,6 +491,9 @@
     });
 
     init();
+
+    // Poll every 5 seconds so cards added via WhatsApp appear automatically
+    if (db) setInterval(loadFromDb, 5000);
   </script>
 </body>
 </html>
