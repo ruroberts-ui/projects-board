@@ -62,9 +62,19 @@
       width: 100%;
       outline: none;
       transition: border-color 0.2s;
+      -webkit-text-fill-color: #e2e8f0;
+      caret-color: #e2e8f0;
     }
     input:focus, textarea:focus, select:focus { border-color: #6366f1; }
-    select option { background: #1e293b; }
+    select option { background: #1e293b; color: #e2e8f0; }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill {
+      -webkit-text-fill-color: #e2e8f0;
+      -webkit-box-shadow: 0 0 0px 1000px #0f172a inset;
+      box-shadow: 0 0 0px 1000px #0f172a inset;
+    }
 
     .btn-primary {
       background: #6366f1;
