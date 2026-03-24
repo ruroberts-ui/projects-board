@@ -28,6 +28,14 @@
     .team-Paid-Social    { background: #eab30820; color: #eab308; border: 1px solid #eab30840; }
     .team-Content-Merch  { background: #a855f720; color: #a855f7; border: 1px solid #a855f740; }
 
+    /* Card left border by team */
+    .card-team-Messaging      { border-left: 4px solid #22c55e; }
+    .card-team-PPC            { border-left: 4px solid #3b82f6; }
+    .card-team-SEO            { border-left: 4px solid #f97316; }
+    .card-team-Growth         { border-left: 4px solid #ef4444; }
+    .card-team-Paid-Social    { border-left: 4px solid #eab308; }
+    .card-team-Content-Merch  { border-left: 4px solid #a855f7; }
+
     .card {
       background: #1e293b;
       border: 1px solid #334155;
@@ -380,7 +388,7 @@
       const date = new Date(c.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
       const teamBadge = c.team ? `<span class="team-badge ${TEAM_CLASS[c.team] || ''}">${esc(c.team)}</span>` : '';
       return `
-        <div class="card" data-id="${c.id}" draggable="true" ondblclick="openEditModal('${c.id}')">
+        <div class="card ${c.team ? 'card-team-'+c.team.replace(/ /g,'-').replace(/&\s*/g,'').replace(/-+/g,'-').replace(/-$/,'') : ''}" data-id="${c.id}" draggable="true" ondblclick="openEditModal('${c.id}')">
           <div class="flex items-start justify-between gap-2">
             <span class="text-white text-sm font-medium leading-snug flex-1">${esc(c.title)}</span>
             <button class="delete-btn text-lg leading-none mt-0.5" onclick="deleteCard('${c.id}',event)" title="Delete">×</button>
