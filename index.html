@@ -26,15 +26,27 @@
     .team-SEO            { background: #f9731620; color: #f97316; border: 1px solid #f9731640; }
     .team-Growth         { background: #ef444420; color: #ef4444; border: 1px solid #ef444440; }
     .team-Paid-Social    { background: #eab30820; color: #eab308; border: 1px solid #eab30840; }
-    .team-Content-Merch  { background: #a855f720; color: #a855f7; border: 1px solid #a855f740; }
+    .team-Content-Merch    { background: #a855f720; color: #a855f7; border: 1px solid #a855f740; }
+    .team-Retail           { background: #14b8a620; color: #14b8a6; border: 1px solid #14b8a640; }
+    .team-Affiliate        { background: #ec489920; color: #ec4899; border: 1px solid #ec489940; }
+    .team-Digital-Partner  { background: #0ea5e920; color: #0ea5e9; border: 1px solid #0ea5e940; }
 
     /* Card left border by team */
-    .card-team-Messaging      { border-left: 4px solid #22c55e !important; }
-    .card-team-PPC            { border-left: 4px solid #3b82f6 !important; }
-    .card-team-SEO            { border-left: 4px solid #f97316 !important; }
-    .card-team-Growth         { border-left: 4px solid #ef4444 !important; }
-    .card-team-Paid-Social    { border-left: 4px solid #eab308 !important; }
-    .card-team-Content-Merch  { border-left: 4px solid #a855f7 !important; }
+    .card-team-Messaging       { border-left: 4px solid #22c55e !important; }
+    .card-team-PPC             { border-left: 4px solid #3b82f6 !important; }
+    .card-team-SEO             { border-left: 4px solid #f97316 !important; }
+    .card-team-Growth          { border-left: 4px solid #ef4444 !important; }
+    .card-team-Paid-Social     { border-left: 4px solid #eab308 !important; }
+    .card-team-Content-Merch   { border-left: 4px solid #a855f7 !important; }
+    .card-team-Retail          { border-left: 4px solid #14b8a6 !important; }
+    .card-team-Affiliate       { border-left: 4px solid #ec4899 !important; }
+    .card-team-Digital-Partner { border-left: 4px solid #0ea5e9 !important; }
+
+    /* Pending duration badge */
+    .pending-fresh  { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; }
+    .pending-mid    { background: #eab30820; color: #eab308; border: 1px solid #eab30840; }
+    .pending-late   { background: #f9731620; color: #f97316; border: 1px solid #f9731640; }
+    .pending-overdue{ background: #ef444420; color: #ef4444; border: 1px solid #ef444440; }
 
     .card {
       background: #1e293b;
@@ -168,6 +180,9 @@
     .filter-Growth.active             { background: #ef4444; border-color: #ef4444; color: #fff; }
     .filter-Paid-Social.active        { background: #eab308; border-color: #eab308; color: #000; }
     .filter-Content-Merch.active      { background: #a855f7; border-color: #a855f7; color: #fff; }
+    .filter-Retail.active             { background: #14b8a6; border-color: #14b8a6; color: #fff; }
+    .filter-Affiliate.active          { background: #ec4899; border-color: #ec4899; color: #fff; }
+    .filter-Digital-Partner.active    { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
   </style>
 </head>
 <body class="min-h-screen p-6">
@@ -191,7 +206,10 @@
     <button class="filter-btn filter-SEO"           onclick="setFilter('SEO', this)">SEO</button>
     <button class="filter-btn filter-Growth"        onclick="setFilter('Growth', this)">Growth</button>
     <button class="filter-btn filter-Paid-Social"   onclick="setFilter('Paid Social', this)">Paid Social</button>
-    <button class="filter-btn filter-Content-Merch" onclick="setFilter('Content & Merch', this)">Content &amp; Merch</button>
+    <button class="filter-btn filter-Content-Merch"   onclick="setFilter('Content & Merch', this)">Content &amp; Merch</button>
+    <button class="filter-btn filter-Retail"          onclick="setFilter('Retail', this)">Retail</button>
+    <button class="filter-btn filter-Affiliate"       onclick="setFilter('Affiliate', this)">Affiliate</button>
+    <button class="filter-btn filter-Digital-Partner" onclick="setFilter('Digital Partner', this)">Digital Partner</button>
   </div>
 
   <!-- Config banner (shown until Supabase is connected) -->
@@ -280,6 +298,9 @@
             <option value="Growth">Growth</option>
             <option value="Paid Social">Paid Social</option>
             <option value="Content &amp; Merch">Content &amp; Merch</option>
+            <option value="Retail">Retail</option>
+            <option value="Affiliate">Affiliate</option>
+            <option value="Digital Partner">Digital Partner</option>
           </select>
         </div>
         <div>
@@ -362,13 +383,31 @@
     const COLS = ['new', 'mine', 'theirs', 'complete'];
     const COL_LABELS = { new: 'New Idea', mine: 'Pending My Action', theirs: 'Pending Their Action', complete: 'Complete' };
     const TEAM_CLASS = {
-      'Messaging':       'team-Messaging',
-      'PPC':             'team-PPC',
-      'SEO':             'team-SEO',
-      'Growth':          'team-Growth',
-      'Paid Social':     'team-Paid-Social',
-      'Content & Merch': 'team-Content-Merch',
+      'Messaging':        'team-Messaging',
+      'PPC':              'team-PPC',
+      'SEO':              'team-SEO',
+      'Growth':           'team-Growth',
+      'Paid Social':      'team-Paid-Social',
+      'Content & Merch':  'team-Content-Merch',
+      'Retail':           'team-Retail',
+      'Affiliate':        'team-Affiliate',
+      'Digital Partner':  'team-Digital-Partner',
     };
+
+    function pendingDuration(c) {
+      const since = c.status_changed_at || c.created_at;
+      if (!since) return '';
+      const days = Math.floor((Date.now() - new Date(since)) / 86400000);
+      if (days < 1) return { label: 'Today', cls: 'pending-fresh' };
+      const weeks = Math.floor(days / 7);
+      const rem   = days % 7;
+      let label;
+      if (days < 7)        label = `${days}d waiting`;
+      else if (rem === 0)  label = `${weeks}w waiting`;
+      else                 label = `${weeks}w ${rem}d waiting`;
+      const cls = days < 7 ? 'pending-fresh' : days < 14 ? 'pending-mid' : days < 28 ? 'pending-late' : 'pending-overdue';
+      return { label, cls };
+    }
 
     // ─── Boot ──────────────────────────────────────────────────────────────────
     async function init() {
@@ -422,8 +461,11 @@
       const desc = c.description ? `<p class="text-slate-400 text-xs mt-1 leading-relaxed">${esc(c.description)}</p>` : '';
       const date = new Date(c.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
       const teamBadge = c.team ? `<span class="team-badge ${TEAM_CLASS[c.team] || ''}">${esc(c.team)}</span>` : '';
+      const pending = c.column === 'theirs' ? pendingDuration(c) : null;
+      const pendingBadge = pending ? `<span class="team-badge ${pending.cls}">⏳ ${pending.label}</span>` : '';
+      const teamCls = c.team ? 'card-team-'+c.team.replace(/ /g,'-').replace(/&\s*/g,'').replace(/-+/g,'-').replace(/-$/,'') : '';
       return `
-        <div class="card ${c.team ? 'card-team-'+c.team.replace(/ /g,'-').replace(/&\s*/g,'').replace(/-+/g,'-').replace(/-$/,'') : ''}" data-id="${c.id}" draggable="true" ondblclick="openEditModal('${c.id}')">
+        <div class="card ${teamCls}" data-id="${c.id}" draggable="true" ondblclick="openEditModal('${c.id}')">
           <div class="flex items-start justify-between gap-2">
             <span class="text-white text-sm font-medium leading-snug flex-1">${esc(c.title)}</span>
             <button class="delete-btn text-lg leading-none mt-0.5" onclick="deleteCard('${c.id}',event)" title="Delete">×</button>
@@ -434,6 +476,7 @@
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-xs ${badgeClass} rounded-full px-2 py-0.5">${COL_LABELS[c.column]}</span>
               ${teamBadge}
+              ${pendingBadge}
             </div>
             <span class="text-xs text-slate-600">${date}</span>
           </div>
@@ -459,10 +502,12 @@
         created_at: new Date().toISOString()
       };
       if (db) {
-        const { data, error } = await db.from('cards').insert([{
+        const insertData = {
           title: card.title, description: card.description,
           person: card.person, team: card.team, status: card.column, position: card.position
-        }]).select().single();
+        };
+        if (card.column === 'theirs') insertData.status_changed_at = new Date().toISOString();
+        const { data, error } = await db.from('cards').insert([insertData]).select().single();
         if (error) { showToast('Error saving: ' + error.message); return; }
         cards.push({...data, column: data.status});
       } else {
@@ -483,9 +528,13 @@
       if (!dragId) return;
       const card = cards.find(c => String(c.id) === String(dragId));
       if (!card || card.column === col) return;
+      const now = new Date().toISOString();
       card.column = col;
+      if (col === 'theirs') card.status_changed_at = now;
       if (db) {
-        await db.from('cards').update({ status: col }).eq('id', dragId);
+        const upd = { status: col };
+        if (col === 'theirs') upd.status_changed_at = now;
+        await db.from('cards').update(upd).eq('id', dragId);
       }
       render();
       dragId = null;
@@ -519,8 +568,12 @@
       };
       const card = cards.find(c => String(c.id) === String(editId));
       if (!card) return;
+      const now = new Date().toISOString();
+      if (col === 'theirs' && card.column !== 'theirs') updates.status_changed_at = now;
       Object.assign(card, updates);
-      if (db) await db.from('cards').update({ title: updates.title, description: updates.description, person: updates.person, team: updates.team, status: col }).eq('id', editId);
+      const dbUpd = { title: updates.title, description: updates.description, person: updates.person, team: updates.team, status: col };
+      if (updates.status_changed_at) dbUpd.status_changed_at = updates.status_changed_at;
+      if (db) await db.from('cards').update(dbUpd).eq('id', editId);
       render();
       closeEditModal();
       showToast('Saved ✓');
